@@ -15,7 +15,7 @@ def create_all():
          city VARCHAR,
          state VARCHAR,
          org_id int,
-         active smallint 
+         active smallint
       );
    """)
    cursor.execute("""
@@ -25,7 +25,7 @@ def create_all():
          phone VARCHAR,
          city VARCHAR,
          state VARCHAR,
-         active smallint 
+         active smallint
       );
    """)
    print("Creating tables...")
@@ -163,7 +163,137 @@ def delete_user(id):
     conn.commit()
 
     return jsonify(f"User {id} was deleted")
+
+
+@app.route('/org/add', methods=['POST'])
+def org_add():
+
+    post_data = request.form if request.form else request.get_json()
+
+
+    name = post_data.get('name')
+    if not name:
+        return jsonify("Name is Required"), 400
+    phone = post_data.get('phone')
+    city = post_data.get('city')
+    state = post_data.get('state')
+    active = post_data.get('active')
+
+    cursor.execute("INSERT INTO Organizations (name, phone, city, state, active) VALUES (%s, %s, %s, %s, %s);", [name, phone, city, state, active])
+    conn.commit()
+    return jsonify("Organization created",post_data), 201
+
+
+@app.route('/org/update/<id>', methods=["PUT"])
+def update_org_by_id(id):
+    cursor.execute(
+        "SELECT org_id, name, phone, city, state, active FROM Organizations WHERE org_id =%s;",
+        [id])
+    result = cursor.fetchone()
+
+    if not result:
+        return jsonify('That org does not exist'), 404
+    else:
+
+        result_dict = {
+            "org_id": result[0],
+            "name": result[1],
+            "phone": result[2],
+            "city": result[3],
+            "state": result[4],
+            "active": result[5]
+        }
+
+    post_data = request.form if request.form else request.json
+
+    for key, val in post_data.copy().items():
+        if not val:
+            post_data.pop(key)
+
+    result_dict.update(post_data)
+
+    cursor.execute(
+        '''UPDATE Organizations SET 
+        name = %s,   
+        phone= %s, 
+        city= %s, 
+        state= %s, 
+        active= %s 
+        
+        WHERE org_id = %s
+    ;''',
+        [
+         result_dict['name'],
+         result_dict["phone"],
+         result_dict["city"],
+         result_dict['state'],
+         result_dict['active'],
+         result_dict["org_id"]
+         ])
+    conn.commit()
+    return jsonify('org updated')
+
+
+@app.route('/org/get', methods=["GET"])
+def get_all_orgs():
+    cursor.execute("SELECT org_id, name, phone, city, state, active FROM Organizations")
+    results = cursor.fetchall()
+    if not results:
+        return jsonify("No orgs in Database"), 404
+    
+    end_results = []
+    for result in results:
+        results_dict ={
+            'org_id': result[0],
+            'name': result[1],
+            'phone': result[2],
+            'city': result[3],
+            'state': result[4],
+            'active': result[5]
+        }
+        end_results.append(results_dict)
+    return jsonify(end_results)
+
+
+@app.route('/org/get/<id>', methods=["GET"])
+def get_org_by_id(id):
+    cursor.execute("SELECT org_id, name, phone, city, state, active FROM Organizations WHERE org_id = %s", [id])
+    result = cursor.fetchone()
+    if not result:
+        return jsonify("Org not in Database"), 404
+    result_dict ={
+        "org_id": result[0],
+        "name": result[1],
+        'phone': result[2],
+        'city': result[3],
+        'state': result[4],
+        'active': result[5]
+
+    }
+    return jsonify(result_dict), 200
+
+
+@app.route('/org/activate/<id>', methods=["PATCH"])
+def activate_org(id):
+    cursor.execute("UPDATE Organizations SET active=(1) WHERE org_id=(%s)", [id])
+    conn.commit()
+
+    return jsonify("org activated")
+
+@app.route('/org/deactivate/<id>', methods=["PATCH"])
+def deactivate_org(id):
+    cursor.execute("UPDATE Organizations SET active=(0) WHERE org_id=(%s)", [id])
+    conn.commit()
+
+    return jsonify("org deactivated")
+
+@app.route('/org/delete/<id>', methods=["DELETE"])
+def delete_org(id):
+    cursor.execute("DELETE FROM Organizations WHERE org_id=(%s)", [id])
+    conn.commit()
+
+    return jsonify(f"Org {id} was deleted")
     
 
 if __name__=="__main__":
-    app.run(port="8089", host="0.0.0.0")
+    app.run(port="8089", host="0.0.0.0", debug=True)
